@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="header-actions">
+    <h1>Tracked Stocks</h1>
+    <form method="post" style="display: flex; gap: 10px;">
+        {% csrf_token %}
+        <input type="text" name="symbol" placeholder="Enter Ticker (e.g. KO)" required style="width: 200px;">
+        <button type="submit" class="btn">Add Stock</button>
+    </form>
+</div>
+
+<div class="card-grid">
+    {% for stock in stocks %}
+    <div class="card">
+        <h3>
+            {{ stock.symbol }}
+            {% if stock.is_stable %}
+            <span class="badge badge-success">Stable</span>
+            {% else %}
+            <span class="badge badge-danger">Volatile</span>
+            {% endif %}
+        </h3>
+        <p class="name">{{ stock.name }}</p>
+        <div style="margin: 15px 0;">
+            <div style="font-size: 2rem; font-weight: 700;">
+                {% if stock.current_price %}
+                ${{ stock.current_price }}
+                {% else %}
+                -
+                {% endif %}
+            </div>
+            <div class="text-secondary">Target drop: {{ stock.target_drop_percent }}%</div>
+        </div>
+        <div style="font-size: 0.8rem; color: #8b949e;">
+            Last checked: {{ stock.last_checked|date:"M d, H:i" }}
+        </div>
+    </div>
+    {% empty %}
+    <div class="card" style="grid-column: 1 / -1; text-align: center; padding: 40px;">
+        <p>No stocks being tracked. Add one above!</p>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

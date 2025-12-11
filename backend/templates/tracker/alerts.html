@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h1>Price Alerts History</h1>
+
+<table>
+    <thead>
+        <tr>
+            <th>Date</th>
+            <th>Stock</th>
+            <th>Alert Price</th>
+            <th>Status</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for alert in alerts %}
+        <tr>
+            <td>{{ alert.date|date:"Y-m-d H:i" }}</td>
+            <td><strong>{{ alert.stock.symbol }}</strong></td>
+            <td>${{ alert.price_at_alert }}</td>
+            <td>
+                {% if alert.sent %}
+                <span class="badge badge-success">Sent</span>
+                {% else %}
+                <span class="badge badge-danger">Pending</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="4" style="text-align: center;">No alerts generated yet.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

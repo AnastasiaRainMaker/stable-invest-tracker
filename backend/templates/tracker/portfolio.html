@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="header-actions">
+    <h1>Portfolio</h1>
+    <div style="background: var(--card-bg); padding: 15px; border-radius: 8px; border: 1px solid var(--border);">
+        <form method="post" style="display: flex; gap: 10px; align-items: flex-end;">
+            {% csrf_token %}
+            <div>
+                <label style="font-size: 0.8rem; display: block; margin-bottom: 5px;">Symbol</label>
+                <input type="text" name="stock_symbol" placeholder="Symbol" required style="width: 100px;">
+            </div>
+            <div>
+                <label style="font-size: 0.8rem; display: block; margin-bottom: 5px;">Price</label>
+                <input type="number" step="0.01" name="price" placeholder="Price" required style="width: 100px;">
+            </div>
+            <div>
+                <label style="font-size: 0.8rem; display: block; margin-bottom: 5px;">Qty</label>
+                <input type="number" step="any" name="quantity" value="1" required style="width: 80px;">
+            </div>
+            <button type="submit" class="btn">Log Buy</button>
+        </form>
+    </div>
+</div>
+
+<table>
+    <thead>
+        <tr>
+            <th>Stock</th>
+            <th>Buy Date</th>
+            <th>Buy Price</th>
+            <th>Qty</th>
+            <th>Total Cost</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in items %}
+        <tr>
+            <td><strong>{{ item.stock.symbol }}</strong></td>
+            <td>{{ item.purchase_date }}</td>
+            <td>${{ item.purchase_price }}</td>
+            <td>{{ item.quantity }}</td>
+            <td>${{ item.purchase_price }}</td> <!-- Simple calc, ideally logic in model property -->
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="5" style="text-align: center;">No purchases logged.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
