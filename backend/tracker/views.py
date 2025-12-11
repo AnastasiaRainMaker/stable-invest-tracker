@@ -8,19 +8,28 @@ from .services import update_stock_info
 from django.views.generic import TemplateView, ListView, CreateView
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
+from django.contrib.auth.mixins import LoginRequiredMixin
 from .models import Stock, PortfolioItem, PriceAlert
 from .serializers import StockSerializer, PortfolioItemSerializer, PriceAlertSerializer
 from .services import update_stock_info
 
 # --- UI Views (Template Based) ---
 
-class DashboardView(ListView):
+class DashboardView(LoginRequiredMixin, ListView):
     model = Stock
     template_name = 'tracker/dashboard.html'
     context_object_name = 'stocks'
 
     def get_queryset(self):
+        query = self.request.GET.get('q')
+        if query:
+            return Stock.objects.filter(symbol__icontains=query)
         return Stock.objects.all().order_by('-created_at')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['search_query'] = self.request.GET.get('q', '')
+        return context
 
     def post(self, request, *args, **kwargs):
         # Quick Add Stock form handler
@@ -31,10 +40,10 @@ class DashboardView(ListView):
                 try:
                     update_stock_info(stock.id)
                 except Exception:
-                    pass # Handled by service or just ignored for demo
+                    pass 
         return redirect('dashboard')
 
-class PortfolioListView(ListView):
+class PortfolioListView(LoginRequiredMixin, ListView):
     model = PortfolioItem
     template_name = 'tracker/portfolio.html'
     context_object_name = 'items'
@@ -57,11 +66,29 @@ class PortfolioListView(ListView):
             
         return redirect('portfolio')
 
-class AlertListView(ListView):
+class AlertListView(LoginRequiredMixin, ListView):
     model = PriceAlert
     template_name = 'tracker/alerts.html'
     context_object_name = 'alerts'
     ordering = ['-date']
+
+class UpdateTargetView(LoginRequiredMixin, TemplateView):
+    def post(self, request, pk):
+        from django.shortcuts import get_object_or_404
+        from django.http import JsonResponse
+        
+        stock = get_object_or_404(Stock, pk=pk)
+        new_target = request.POST.get('target_drop')
+        
+        if new_target:
+            try:
+                stock.target_drop_percent = float(new_target)
+                stock.save()
+                return JsonResponse({'status': 'success', 'new_value': stock.target_drop_percent})
+            except ValueError:
+                return JsonResponse({'status': 'error', 'message': 'Invalid value'}, status=400)
+        
+        return JsonResponse({'status': 'error', 'message': 'No value provided'}, status=400)
 
 # --- API Views ---
 

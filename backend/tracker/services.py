@@ -73,10 +73,96 @@ def send_price_alert_email(alert, drop_percent, year_high):
         f"This might be a buying opportunity for this stable asset."
     )
     
-    from_email = 'system@stableinvest.local'
-    recipient_list = ['user@example.com'] # In real app, this would be the user's email
+    from_email = settings.ALERT_FROM_EMAIL
+    recipient_list = [settings.ALERT_RECIPIENT_EMAIL]
     
     send_mail(subject, message, from_email, recipient_list)
     
-    alert.sent = True
-    alert.save()
+def discover_top_stocks():
+    # In a real app, this might scrape a screener. 
+    # For this demo, we check a curated list of known 'solid' companies.
+    candidates = [
+        # Tech / Comm Services
+        "AAPL", "MSFT", "GOOGL", "AMZN", "META", "NVDA", "TSLA", "ADBE", "CRM", "CSCO",
+        "NFLX", "AMD", "QCOM", "INTC", "TXN", "HON", "IBM", "ORCL", "ACN", "INTU",
+        "NOW", "UBER", "ABNB", "PANW", "SNOW", "PLTR", "FTNT", "ZM", "WDAY", "ADSK",
+        "KLAC", "LRCX", "AMAT", "MU", "ADI", "NXPI", "MCHP", "GLW", "HPQ", "DELL",
+        "TEL", "APH", "KEYS", "TRMB", "TER", "STX", "WDC", "NTAP", "PSTG", "FSLR",
+        
+        # Finance
+        "BRK-B", "JPM", "V", "MA", "BAC", "WFC", "C", "GS", "MS", "AXP",
+        "BLK", "SPGI", "MCO", "SCHW", "MMC", "AON", "PGR", "CB", "USB", "PNC",
+        "TFC", "COF", "FITB", "STT", "BK", "NTRS", "RF", "KEY", "CFG", "HBAN",
+        "ALL", "TRV", "HIG", "CINF", "PFG", "MET", "PRU", "LNC", "AIG", "PYPL",
+        
+        # Healthcare
+        "JNJ", "UNH", "LLY", "PFE", "ABBV", "MRK", "TMO", "DHR", "ABT", "BMY",
+        "AMGN", "GILD", "CVS", "CI", "ELV", "HCA", "SYK", "ISRG", "EW", "BSX",
+        "BDX", "ZTS", "REGN", "VRTX", "BIIB", "ILMN", "DXCM", "A", "MTD", "WAT",
+        "IQV", "CNC", "HUM", "MCK", "CAH", "ABC", "BAX", "HPQ", "ALGN", "RMD",
+        
+        # Consumer / Retail
+        "AMZN", "WMT", "COST", "HD", "LOW", "MCD", "SBUX", "NKE", "TGT", "TJX",
+        "ROST", "LULU", "MAR", "HLT", "BKNG", "EXPE", "RCL", "CCL", "YUM", "CMG",
+        "DRI", "DPZ", "TSCO", "DG", "DLTR", "BBY", "KMX", "AZO", "ORLY", "AAP",
+        "KO", "PEP", "PG", "PM", "MO", "CL", "EL", "KMB", "GIS", "K",
+        "MDLZ", "HSY", "STZ", "TAP", "CAG", "CPB", "SJM", "TSN", "HRL", "MKC",
+        
+        # Industrial / Energy / Materials
+        "CAT", "DE", "HON", "GE", "MMM", "UNP", "UPS", "FDX", "LMT", "RTX",
+        "BA", "GD", "NOC", "LHX", "TXT", "HII", "ETN", "ITW", "EMR", "PH",
+        "CMI", "PCAR", "GWW", "FAST", "URI", "XYL", "ROK", "AME", "DOV", "SWK",
+        "XOM", "CVX", "COP", "SLB", "EOG", "PXD", "OXY", "HES", "HAL", "BKR",
+        "LIN", "APD", "ECL", "SHW", "PPG", "NUE", "FCX", "DOW", "DD", "CTVA",
+        
+        # Utilities / Real Estate
+        "NEE", "DUK", "SO", "D", "AEP", "EXC", "SRE", "XEL", "PEG", "ED",
+        "PLD", "AMT", "CCI", "EQIX", "PSA", "O", "SPG", "WELL", "DLR", "VTR"
+    ]
+    
+    print(f"Scanning {len(candidates)} candidates for long-term stability...")
+    
+    discovered = []
+    
+    for symbol in candidates:
+        try:
+            # Check if we already track it
+            if Stock.objects.filter(symbol=symbol).exists():
+                continue
+                
+            ticker = yf.Ticker(symbol)
+            hist = ticker.history(period="5y") # 5 years for long term
+            
+            if hist.empty:
+                continue
+                
+            # Logic:
+            # 1. Positive Growth (Current > 5yr ago)
+            # 2. Low Volatility (std dev of returns)
+            
+            start_price = hist['Close'].iloc[0]
+            current_price = hist['Close'].iloc[-1]
+            
+            if current_price <= start_price:
+                continue # No growth in 5 years, skip
+                
+            hist['Returns'] = hist['Close'].pct_change()
+            volatility = hist['Returns'].std() * np.sqrt(252)
+            
+            # Strict stability for "Top 100": < 30% volatility
+            if volatility < 0.30:
+                print(f"Found gem: {symbol} (Vol: {volatility:.2f})")
+                
+                stock, created = Stock.objects.get_or_create(symbol=symbol)
+                stock.name = ticker.info.get('longName', symbol)
+                stock.is_stable = True
+                stock.current_price = current_price
+                stock.last_checked = timezone.now()
+                stock.save()
+                discovered.append(stock)
+                
+        except Exception as e:
+            print(f"Skipping {symbol}: {e}")
+            
+    return discovered
+

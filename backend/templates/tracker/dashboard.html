@@ -3,43 +3,92 @@
 {% block content %}
 <div class="header-actions">
     <h1>Tracked Stocks</h1>
-    <form method="post" style="display: flex; gap: 10px;">
-        {% csrf_token %}
-        <input type="text" name="symbol" placeholder="Enter Ticker (e.g. KO)" required style="width: 200px;">
-        <button type="submit" class="btn">Add Stock</button>
+    <form method="get" style="display: flex; gap: 10px; width: 100%; max-width: 400px;">
+        <input type="text" name="q" placeholder="Search Ticker (e.g. KO)" value="{{ search_query }}" style="flex: 1;">
+        <button type="submit" class="btn">Search</button>
+        {% if search_query %}
+        <a href="{% url 'dashboard' %}" class="btn" style="background: var(--border);">Clear</a>
+        {% endif %}
     </form>
 </div>
 
-<div class="card-grid">
-    {% for stock in stocks %}
-    <div class="card">
-        <h3>
-            {{ stock.symbol }}
-            {% if stock.is_stable %}
-            <span class="badge badge-success">Stable</span>
-            {% else %}
-            <span class="badge badge-danger">Volatile</span>
-            {% endif %}
-        </h3>
-        <p class="name">{{ stock.name }}</p>
-        <div style="margin: 15px 0;">
-            <div style="font-size: 2rem; font-weight: 700;">
-                {% if stock.current_price %}
-                ${{ stock.current_price }}
+<!-- Vertical List (Table) View -->
+<table>
+    <thead>
+        <tr>
+            <th>Symbol</th>
+            <th>Name</th>
+            <th>Price</th>
+            <th>Status</th>
+            <th>Target Drop</th>
+            <th>Last Checked</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for stock in stocks %}
+        <tr>
+            <td><strong>{{ stock.symbol }}</strong></td>
+            <td>{{ stock.name }}</td>
+            <td style="font-weight: 700;">
+                {% if stock.current_price %}${{ stock.current_price }}{% else %}-{% endif %}
+            </td>
+            <td>
+                {% if stock.is_stable %}
+                <span class="badge badge-success">Stable</span>
+                {% else %}
+                <span class="badge badge-danger">Volatile</span>
+                {% endif %}
+            </td>
+            <td>
+                <input type="number" step="0.1" class="target-drop-input" data-id="{{ stock.id }}"
+                    value="{{ stock.target_drop_percent }}"
+                    style="width: 70px; padding: 5px; background: #0d1117; color: #f0f6fc; border: 1px solid #30363d; border-radius: 4px;">
+                %
+            </td>
+            <td style="font-size: 0.9em; color: var(--text-secondary);">
+                {% if stock.last_checked %}
+                <span class="local-time" data-iso="{{ stock.last_checked|date:'c' }}">
+                    {{ stock.last_checked|date:"M d, H:i" }} UTC
+                </span>
                 {% else %}
                 -
                 {% endif %}
-            </div>
-            <div class="text-secondary">Target drop: {{ stock.target_drop_percent }}%</div>
-        </div>
-        <div style="font-size: 0.8rem; color: #8b949e;">
-            Last checked: {{ stock.last_checked|date:"M d, H:i" }}
-        </div>
-    </div>
-    {% empty %}
-    <div class="card" style="grid-column: 1 / -1; text-align: center; padding: 40px;">
-        <p>No stocks being tracked. Add one above!</p>
-    </div>
-    {% endfor %}
-</div>
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="6" style="text-align: center; padding: 40px;">
+                {% if search_query %}
+                <p style="margin-bottom: 20px;">No stocks found for "{{ search_query }}".</p>
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="symbol" value="{{ search_query }}">
+                    <button type="submit" class="btn">Add "{{ search_query }}" to Tracker</button>
+                </form>
+                {% else %}
+                <p>No stocks being tracked. Search to add one!</p>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- Hidden CSRF for AJAX -->
+<input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+
+<script src="/static/js/inline_edit.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('.local-time').forEach(function (el) {
+            const iso = el.getAttribute('data-iso');
+            if (iso) {
+                const date = new Date(iso);
+                // Format: "Dec 11, 10:21"
+                const options = { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+                el.textContent = date.toLocaleDateString(undefined, options);
+            }
+        });
+    });
+</script>
 {% endblock %}
