@@ -1,7 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import StockViewSet, PortfolioItemViewSet, PriceAlertViewSet
-from .views import DashboardView, PortfolioListView, AlertListView, UpdateTargetView
+from .views import DashboardView, PortfolioListView, AlertListView, UpdateTargetView, RunTasksView
 
 router = DefaultRouter()
 router.register(r'stocks', StockViewSet)
@@ -13,5 +13,6 @@ urlpatterns = [
     path('portfolio/', PortfolioListView.as_view(), name='portfolio'),
     path('alerts/', AlertListView.as_view(), name='alerts'),
     path('stock/<int:pk>/update-target/', UpdateTargetView.as_view(), name='update_target'),
+    path('api/run-tasks/', RunTasksView.as_view(), name='run_tasks'),
     path('api/', include(router.urls)),
 ]

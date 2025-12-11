@@ -90,6 +90,35 @@ class UpdateTargetView(LoginRequiredMixin, TemplateView):
         
         return JsonResponse({'status': 'error', 'message': 'No value provided'}, status=400)
 
+class RunTasksView(TemplateView):
+    """
+    Exposes management commands to be triggered by external cron services (e.g. cron-job.org).
+    Secured by a secret token.
+    """
+    def get(self, request, *args, **kwargs):
+        from django.conf import settings
+        from django.core.management import call_command
+        from django.http import JsonResponse
+        import io
+        import contextlib
+
+        secret = request.GET.get('secret')
+        # Use a hardcoded fallback or env var for the secret
+        # In production, use os.environ['CRON_SECRET']
+        expected_secret = getattr(settings, 'CRON_SECRET', 'my-super-secret-cron-token')
+
+        if secret != expected_secret:
+            return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
+
+        weekly = request.GET.get('weekly') == 'true'
+        
+        # Capture output
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+             call_command('run_tasks', weekly=weekly)
+        
+        return JsonResponse({'status': 'success', 'output': out.getvalue()})
+
 # --- API Views ---
 
 class StockViewSet(viewsets.ModelViewSet):
